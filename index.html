@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wi-Fi Real-time Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+
+    <!-- Navbar -->
+    <nav class="border-b border-slate-800 bg-slate-900/50 backdrop-blur p-4 sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold text-indigo-400 flex items-center gap-2">
+                <span>🌐</span> Wi-Fi Pulse Monitor
+            </h1>
+            <span class="text-xs bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-full border border-indigo-500/20 font-medium animate-pulse">Live Monitoring</span>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 flex-grow max-w-4xl">
+        
+        <!-- Danger/Lag Alert Alert Box -->
+        <div id="lag-alert" class="hidden mb-6 bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-xl flex items-center gap-3 animate-bounce">
+            <span class="text-xl">⚠️</span>
+            <div>
+                <p class="font-semibold">Koneksi Terdeteksi Lagging!</p>
+                <p class="text-xs text-red-300/80">Latency tinggi dapat mengganggu aktivitas gaming atau streaming kamu.</p>
+            </div>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            
+            <!-- Card 1: Ping -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl transition-all duration-300 hover:border-slate-700">
+                <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Ping / Latency</p>
+                <h3 id="ping-val" class="text-4xl font-extrabold text-emerald-400 mt-2 transition-all">0 <span class="text-base font-normal text-slate-500">ms</span></h3>
+                <p class="text-[10px] text-slate-500 mt-2">Diperbarui setiap 2 detik</p>
+            </div>
+
+            <!-- Card 2: Penggunaan Data -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl transition-all duration-300 hover:border-slate-700">
+                <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Total Data Terpakai</p>
+                <h3 id="data-val" class="text-4xl font-extrabold text-blue-400 mt-2">0 <span class="text-base font-normal text-slate-500">MB</span></h3>
+                <p class="text-[10px] text-slate-500 mt-2">Akumulasi sejak perangkat aktif</p>
+            </div>
+
+            <!-- Card 3: Status Kondisi -->
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl transition-all duration-300 hover:border-slate-700">
+                <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Kondisi Jaringan</p>
+                <h3 id="status-val" class="text-3xl font-extrabold text-slate-300 mt-2">Memuat...</h3>
+                <p class="text-[10px] text-slate-500 mt-2">Analisis kestabilan sistem</p>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-slate-600 border-t border-slate-900 bg-slate-950">
+        &copy; 2026 Wi-Fi Pulse Monitor. Built with Flask & Tailwind.
+    </footer>
+
+    <!-- JavaScript untuk Auto-Update Data -->
+    <script>
+        const alertBox = document.getElementById('lag-alert');
+
+        // Meminta izin push notification bawaan browser / OS
+        if (Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
+        async function fetchWifiData() {
+            try {
+                const response = await fetch('/api/wifi');
+                const data = await response.json();
+
+                // Tampilkan data ke elemen HTML
+                document.getElementById('ping-val').innerHTML = `${data.ping_ms} <span class="text-base font-normal text-slate-500">ms</span>`;
+                document.getElementById('data-val').innerHTML = `${data.total_data_mb} <span class="text-base font-normal text-slate-500">MB</span>`;
+                document.getElementById('status-val').innerText = data.status;
+
+                // Logika Penanganan Jaringan Lag / Putus
+                if (data.status === "Lagging" || data.status === "RTO / Disconnect") {
+                    alertBox.classList.remove('hidden');
+                    document.getElementById('ping-val').className = "text-4xl font-extrabold text-red-500 mt-2 animate-pulse";
+                    document.getElementById('status-val').className = "text-3xl font-extrabold text-red-400 mt-2";
+                    
+                    // Trigger Push Notification Sistem
+                    if (Notification.permission === "granted") {
+                        new Notification("⚠️ Koneksi Wi-Fi Lag!", {
+                            body: `Ping kamu membengkak hingga ${data.ping_ms}ms`,
+                            tag: "wifi-alert" // Mencegah notifikasi menumpuk banyak
+                        });
+                    }
+                } else {
+                    alertBox.classList.add('hidden');
+                    document.getElementById('ping-val').className = "text-4xl font-extrabold text-emerald-400 mt-2";
+                    document.getElementById('status-val').className = "text-3xl font-extrabold text-emerald-400 mt-2";
+                }
+
+            } catch (error) {
+                console.error("Gagal mengambil data jaringan:", error);
+            }
+        }
+
+        // Jalankan fungsi fetch setiap 2000 ms (2 detik)
+        setInterval(fetchWifiData, 2000);
+        // Jalankan sekali di awal saat halaman dimuat
+        fetchWifiData();
+    </script>
+</body>
+</html>
